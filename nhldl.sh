@@ -83,23 +83,32 @@ while read -r line; do
         # Make directory for segment
         mkdir -p "$stream_directory/$(dirname $line)"
 
-        # Download segment.
-        echo ">>> Downloading stream segment: $line [$counter/$num_of_segments]"
-        wget --quiet \
-             --output-document "$stream_directory/$line" \
-             $(dirname $stream_m3u8_url)/$line
-        echo ">>> Done."
+        # While stream file doesn't exist, or is zero length.
+        while [ ! -s "$stream_directory/$line" ]; do
+            # Download segment.
+            echo ">>> Downloading stream segment: $line [$counter/$num_of_segments]"
+            wget --quiet \
+                 --timeout 3 \
+                 --output-document "$stream_directory/$line" \
+                 $(dirname $stream_m3u8_url)/$line
+            echo ">>> Done."
 
-        # Decrypt segment.
-        echo ">>> Decrypting segment."
-        openssl enc -aes-128-cbc \
+            # Decrypt segment.
+            echo ">>> Decrypting segment."
+            openssl enc -aes-128-cbc \
                     -in "$stream_directory/$line" \
                     -out "$stream_directory/$line.dec" \
                     -d -K "$key" -iv "$iv"
-        echo ">>> Done."
+            echo ">>> Done."
 
-        # Replace encrypted segment to save disk space.
-        mv "$stream_directory/$line.dec" "$stream_directory/$line"
+            # If decryption failed, delete bad segment,
+            # otherwise replace it with decrypted version.
+            if [ $? -ne 0 ]; then
+                rm "$stream_directory/$line"
+            else
+                mv "$stream_directory/$line.dec" "$stream_directory/$line"
+            fi
+        done
 
         # Add segment to ffmpeg concatenation file.
         echo "file '$line'" >> $concat_file
@@ -110,6 +119,6 @@ while read -r line; do
 done < "$stream_m3u8_file"
 
 echo ">>> Concatenating stream."
-ffmpeg -loglevel panic -f concat -i $concat_file -c copy -bsf:a aac_adtstoasc \
+ffmpeg -loglevel error -f concat -i $concat_file -c copy -bsf:a aac_adtstoasc \
     $stream_directory.mp4
 echo ">>> Finished."
