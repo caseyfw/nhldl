@@ -19,7 +19,7 @@ master_m3u8_file=$($tempfile_cmd)
 stream_directory=$(basename $(dirname $master_m3u8_url))
 
 echo ">>> Fetching master m3u8 file: $master_m3u8_url"
-wget --quiet \
+wget --quiet --load-cookies cookies.txt \
      --output-document $master_m3u8_file \
      $master_m3u8_url
 echo ">>> Done."
@@ -30,7 +30,7 @@ stream_m3u8_url="$(dirname $master_m3u8_url)/$(grep ${quality}K $master_m3u8_fil
 stream_m3u8_file=$($tempfile_cmd)
 
 echo ">>> Fetching $qualityK stream m3u8 file: $stream_m3u8_url"
-wget --quiet \
+wget --quiet --load-cookies cookies.txt \
      --output-document $stream_m3u8_file \
      $stream_m3u8_url
 echo ">>> Done."
