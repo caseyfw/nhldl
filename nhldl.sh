@@ -87,7 +87,7 @@ while read -r line; do
         while [ ! -s "$stream_directory/$line" ]; do
             # Download segment.
             echo ">>> Downloading stream segment: $line [$counter/$num_of_segments]"
-            wget --quiet \
+            wget --quiet --load-cookies cookies.txt \
                  --timeout 3 \
                  --output-document "$stream_directory/$line" \
                  $(dirname $stream_m3u8_url)/$line
