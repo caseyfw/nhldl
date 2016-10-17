@@ -120,5 +120,23 @@ done < "$stream_m3u8_file"
 
 echo ">>> Concatenating stream."
 ffmpeg -loglevel error -f concat -i $concat_file -c copy -bsf:a aac_adtstoasc \
-    $stream_directory.mp4
-echo ">>> Finished."
+    $stream_directory/concatenated.mp4
+
+echo ">>> Stripping blanked-out ads."
+# Detect silences that indicate ads.
+ffmpeg -i $stream_directory/concatenated.mp4 -filter_complex \
+  "[0:a]silencedetect=n=-50dB:d=1[outa]" -map [outa] -f s16le -y /dev/null |& \
+  grep "^\[silence" > $stream_directory/silence.txt
+
+# Split into segments without ads.
+mkdir -p $stream_directory/gapless
+cat $stream_directory/silence.txt | F='-codec copy -loglevel error' D=$stream_directory perl -ne 'INIT { $ss=0; $se=0; }
+  if (/silence_start: (\S+)/) { $ss=$1; $ctr+=1; printf "ffmpeg -nostdin -i $ENV{D}/concatenated.mp4 -ss %f -t %f $ENV{F} -y $ENV{D}/gapless/%03d.mp4\n", $se, ($ss-$se), $ctr; }
+  if (/silence_end: (\S+)/) { $se=$1; }
+  END { printf "ffmpeg -nostdin -i $ENV{D}/concatenated.mp4 -ss %f $ENV{F} -y $ENV{D}/gapless/%03d.mp4\n", $se, $ctr+1; }' | sh
+
+# Merge segments into final gapless video.
+printf "file 'gapless/%s'\n" $(ls $stream_directory/gapless) > $stream_directory/gapless_files.txt
+ffmpeg -y -loglevel error -f concat -i $stream_directory/gapless_files.txt -c copy $stream_directory.mp4
+
+echo ">>> Finished. You can now delete the $stream_directory directory."
