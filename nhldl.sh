@@ -124,7 +124,7 @@ ffmpeg -loglevel error -f concat -i $concat_file -c copy -bsf:a aac_adtstoasc \
 
 echo ">>> Stripping blanked-out ads."
 # Detect silences that indicate ads.
-ffmpeg -i $stream_directory/concatenated.mp4 -filter_complex \
+ffmpeg -nostats -i $stream_directory/concatenated.mp4 -filter_complex \
   "[0:a]silencedetect=n=-50dB:d=1[outa]" -map [outa] -f s16le -y /dev/null |& \
   grep "^\[silence" > $stream_directory/silence.txt
 
