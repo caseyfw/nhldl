@@ -99,14 +99,15 @@ while read -r line; do
                     -in "$stream_directory/$line" \
                     -out "$stream_directory/$line.dec" \
                     -d -K "$key" -iv "$iv"
-            echo ">>> Done."
 
             # If decryption failed, delete bad segment,
             # otherwise replace it with decrypted version.
             if [ $? -ne 0 ]; then
                 rm "$stream_directory/$line"
+                echo ">>> Failed. Fetching segment again."
             else
                 mv "$stream_directory/$line.dec" "$stream_directory/$line"
+                echo ">>> Done."
             fi
         done
 
