@@ -133,8 +133,7 @@ ffmpeg -nostats -i $stream_directory/concatenated.mp4 -filter_complex \
 mkdir -p $stream_directory/gapless
 cat $stream_directory/silence.txt | F='-codec copy -loglevel error' D=$stream_directory perl -ne 'INIT { $ss=0; $se=0; }
   if (/silence_start: (\S+)/) { $ss=$1; $ctr+=1; printf "ffmpeg -nostdin -i $ENV{D}/concatenated.mp4 -ss %f -t %f $ENV{F} -y $ENV{D}/gapless/%03d.mp4\n", $se, ($ss-$se), $ctr; }
-  if (/silence_end: (\S+)/) { $se=$1; }
-  END { printf "ffmpeg -nostdin -i $ENV{D}/concatenated.mp4 -ss %f $ENV{F} -y $ENV{D}/gapless/%03d.mp4\n", $se, $ctr+1; }' | sh
+  if (/silence_end: (\S+)/) { $se=$1; }' | sh
 
 # Merge segments into final gapless video.
 printf "file 'gapless/%s'\n" $(ls $stream_directory/gapless) > $stream_directory/gapless_files.txt
