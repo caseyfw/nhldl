@@ -3,36 +3,55 @@
 # NHL.DL
 # A script for downloading and assembling NHL.tv video streams. See README.md.
 
+
+exit_route () {
+    local msg=$1
+    echo "$msg"
+    exit 1
+}
+
+VERBOSITY="--quiet"
+
 if [ $(uname -s) = "Darwin" ]; then
-    tempfile_cmd="mktemp"
+    tempfile_cmd="mktemp -t nhldl"
 else
     tempfile_cmd="tempfile"
 fi
+
+which ffmpeg 1>/dev/null || exit_route "Please install ffmpeg 3.x"
 
 cookies=$($tempfile_cmd)
 login_result_page=$($tempfile_cmd)
 
 # Fetch master m3u8 file
-master_m3u8_url=$1
+master_m3u8_url="$1"
 master_m3u8_file=$($tempfile_cmd)
 
 stream_directory=$(basename $(dirname $master_m3u8_url))
 
 echo ">>> Fetching master m3u8 file: $master_m3u8_url"
-wget --quiet --load-cookies cookies.txt \
+wget $VERBOSITY --load-cookies cookies.txt \
      --output-document $master_m3u8_file \
-     $master_m3u8_url
+     $master_m3u8_url || exit_route ">> Failed"
 echo ">>> Done."
 
 # Fetch stream m3u8 file
-quality=$2
-stream_m3u8_url="$(dirname $master_m3u8_url)/$(grep ${quality}K $master_m3u8_file)"
+quality="$2"
+
+if [ -n "$quality" ]
+then
+    stream_m3u8_url="$(dirname $master_m3u8_url)/$(grep ${quality}K $master_m3u8_file)"
+else
+    stream_m3u8_url="$(dirname $master_m3u8_url)/$(tail -1 $master_m3u8_file)"
+    quality=$(tail -1 $master_m3u8_file| cut -c1-4)
+fi
+
 stream_m3u8_file=$($tempfile_cmd)
 
-echo ">>> Fetching $qualityK stream m3u8 file: $stream_m3u8_url"
-wget --quiet --load-cookies cookies.txt \
+echo ">>> Fetching ${quality}K stream m3u8 file: $stream_m3u8_url"
+wget $VERBOSITY --load-cookies cookies.txt \
      --output-document $stream_m3u8_file \
-     $stream_m3u8_url
+     $stream_m3u8_url || exit_route ">> Failed"
 echo ">>> Done."
 
 # Fetch all the keyfiles
@@ -45,7 +64,7 @@ mkdir -p $stream_directory/keys
 if [ -f cookies.txt ]; then
     echo ">>> Fetching keys using cookies.txt file."
     while read -r line; do
-        wget --quiet \
+        wget $VERBOSITY \
              --load-cookies cookies.txt \
              --output-document "$stream_directory/keys/$(basename $line)" \
              $line
@@ -87,7 +106,7 @@ while read -r line; do
         while [ ! -s "$stream_directory/$line" ]; do
             # Download segment.
             echo ">>> Downloading stream segment: $line [$counter/$num_of_segments]"
-            wget --quiet --load-cookies cookies.txt \
+            wget $VERBOSITY --load-cookies cookies.txt \
                  --timeout 3 \
                  --output-document "$stream_directory/$line" \
                  $(dirname $stream_m3u8_url)/$line
@@ -125,9 +144,13 @@ ffmpeg -loglevel error -f concat -i $concat_file -c copy -bsf:a aac_adtstoasc \
 
 echo ">>> Stripping blanked-out ads."
 # Detect silences that indicate ads.
+# |& not working on osx 10.10.5 converted to two stage
+
 ffmpeg -nostats -i $stream_directory/concatenated.mp4 -filter_complex \
-  "[0:a]silencedetect=n=-50dB:d=1[outa]" -map [outa] -f s16le -y /dev/null |& \
-  grep "^\[silence" > $stream_directory/silence.txt
+"[0:a]silencedetect=n=-50dB:d=1[outa]" -map [outa] -f s16le -y /dev/null &>$stream_directory/silence_raw.txt
+
+grep "^\[silence" $stream_directory/silence_raw.txt > $stream_directory/silence.txt
+rm -f $stream_directory/silence_raw.txt
 
 # Split into segments without ads.
 mkdir -p $stream_directory/gapless
