@@ -3,36 +3,27 @@
 # NHL.DL
 # A script for downloading and assembling NHL.tv video streams. See README.md.
 
-
 exit_route () {
-    local msg=$1
-    echo "$msg"
+    echo "$1"
     exit 1
 }
 
 VERBOSITY="--quiet"
 
-if [ $(uname -s) = "Darwin" ]; then
-    tempfile_cmd="mktemp -t nhldl"
-else
-    tempfile_cmd="tempfile"
-fi
-
 which ffmpeg 1>/dev/null || exit_route "Please install ffmpeg 3.x"
 
-cookies=$($tempfile_cmd)
-login_result_page=$($tempfile_cmd)
+# @todo: Scrape the nhl.tv login process and add user/pass to script arguments.
+ls cookies.txt > /dev/null 2>&1 || exit_route "Missing cookies.txt file."
 
-# Fetch master m3u8 file
 master_m3u8_url="$1"
-master_m3u8_file=$($tempfile_cmd)
-
 stream_directory=$(basename $(dirname $master_m3u8_url))
+mkdir -p $stream_directory
+master_m3u8_file="$stream_directory/$(basename $master_m3u8_url)"
 
 echo ">>> Fetching master m3u8 file: $master_m3u8_url"
 wget $VERBOSITY --load-cookies cookies.txt \
      --output-document $master_m3u8_file \
-     $master_m3u8_url || exit_route ">> Failed"
+     $master_m3u8_url || exit_route ">>> Failed."
 echo ">>> Done."
 
 # Fetch stream m3u8 file
@@ -43,15 +34,15 @@ then
     stream_m3u8_url="$(dirname $master_m3u8_url)/$(grep ${quality}K $master_m3u8_file)"
 else
     stream_m3u8_url="$(dirname $master_m3u8_url)/$(tail -1 $master_m3u8_file)"
-    quality=$(tail -1 $master_m3u8_file| cut -c1-4)
+    quality=$(tail -1 $master_m3u8_file | cut -c1-4)
 fi
 
-stream_m3u8_file=$($tempfile_cmd)
+stream_m3u8_file="$stream_directory/$(basename $stream_m3u8_url)"
 
 echo ">>> Fetching ${quality}K stream m3u8 file: $stream_m3u8_url"
 wget $VERBOSITY --load-cookies cookies.txt \
      --output-document $stream_m3u8_file \
-     $stream_m3u8_url || exit_route ">> Failed"
+     $stream_m3u8_url || exit_route ">>> Failed"
 echo ">>> Done."
 
 # Fetch all the keyfiles
@@ -59,23 +50,14 @@ stream_key_urls=$(grep -o "https://mf[^\"]*" $stream_m3u8_file | uniq)
 
 mkdir -p $stream_directory/keys
 
-# @todo: Scrape the nhl.tv login process and add user/pass to script arguments.
-
-if [ -f cookies.txt ]; then
-    echo ">>> Fetching keys using cookies.txt file."
-    while read -r line; do
-        wget $VERBOSITY \
-             --load-cookies cookies.txt \
-             --output-document "$stream_directory/keys/$(basename $line)" \
-             $line
-    done <<< "$stream_key_urls"
-    echo ">>> Done."
-else
-    echo ">>> Stream keys:"
-    echo "$stream_key_urls"
-    echo ">>> Download the above keys in your browser and put them in $stream_directory/keys."
-    read -p ">>> Press enter when you're done."
-fi
+echo ">>> Fetching stream keys."
+while read -r line; do
+    wget $VERBOSITY \
+         --load-cookies cookies.txt \
+         --output-document "$stream_directory/keys/$(basename $line)" \
+         $line
+done <<< "$stream_key_urls"
+echo ">>> Done."
 
 # @todo: Download all of the stream segments first. Parallelise it.
 

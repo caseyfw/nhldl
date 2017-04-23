@@ -1,5 +1,6 @@
 # NHL.DL
-A script for downloading and re-assembling NHL.tv video streams. Won't help you watch NHL streams live.
+A script for downloading and re-assembling NHL.tv video streams. Won't help you
+watch NHL streams live.
 
 *NOTE: THIS SCRIPT REQUIRES AN NHL.TV ACCOUNT, OR AT THE VERY LEAST ACCESS TO THE KEYFILES USED TO DECRYPT STREAMS THAT YOU CAN ONLY GET IF YOU HAVE AN ACCOUNT.*
 
@@ -37,13 +38,13 @@ Open the developer tools / inspector in your browser, and watch an nhl.tv
 stream. On the network tab, enter 'm3u8' into the filter. Click on the file
 called something like `master_wired_web.m3u8` for the URL.
 
-## How do I download the keyfiles?
-Each stream has a number of keyfiles that are used to decrypt its segments.
-NHL.tv has (wisely) decided to put these files on a secure server that
-requires authentication. You can either download them manually using your
-browser (the script will tell you their URLs and where to put them), or you
-can export your cookies from your browser to a file called `cookies.txt` in the
-same directory as this script, and they'll be fetched automatically.
+## How do I find the cookies.txt file?
+You'll need to export your cookies from your browser to a file called
+`cookies.txt` in the same directory as this script. The easiest way to do this
+is to use a cookies exporter plugin like [cookies.txt](https://chrome.google.com/webstore/detail/cookiestxt/njabckikapfpffapmjgojcnbfjonfjfg)
+for Chrome. Once you've logged in and started playing a stream, click on the
+cookie icon in the top right corner of your screen and copy the `mediaAuth_v2`
+and `Authorization` lines into the `cookies.txt` file.
 
 If someone wants to figure out how the bloody hell nhl.tv's auth works, we
 could scrape the login process and add user/pass to the script arguments. Submit
