@@ -86,27 +86,28 @@ while read -r line; do
 
         # While stream file doesn't exist, or is zero length.
         while [ ! -s "$stream_directory/$line" ]; do
-            # Download segment.
+            # Download encrypted segment.
             echo ">>> Downloading stream segment: $line [$counter/$num_of_segments]"
             wget $VERBOSITY --load-cookies cookies.txt \
                  --timeout 3 \
-                 --output-document "$stream_directory/$line" \
+                 --output-document "$stream_directory/$line.enc" \
                  $(dirname $stream_m3u8_url)/$line
             echo ">>> Done."
 
             # Decrypt segment.
             echo ">>> Decrypting segment."
             openssl enc -aes-128-cbc \
-                    -in "$stream_directory/$line" \
+                    -in "$stream_directory/$line.enc" \
                     -out "$stream_directory/$line.dec" \
                     -d -K "$key" -iv "$iv"
 
             # If decryption failed, delete bad segment,
             # otherwise replace it with decrypted version.
             if [ $? -ne 0 ]; then
-                rm "$stream_directory/$line"
+                rm "$stream_directory/$line.enc"
                 echo ">>> Failed. Fetching segment again."
             else
+                rm "$stream_directory/$line.enc"
                 mv "$stream_directory/$line.dec" "$stream_directory/$line"
                 echo ">>> Done."
             fi
@@ -133,6 +134,9 @@ ffmpeg -nostats -i $stream_directory/concatenated.mp4 -filter_complex \
 
 grep "^\[silence" $stream_directory/silence_raw.txt > $stream_directory/silence.txt
 rm -f $stream_directory/silence_raw.txt
+
+# Add a final silence_start to the slience file, ensuring last segment is kept.
+echo "silence_start: $(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $stream_directory/concatenated.mp4)" >> $stream_directory/silence.txt
 
 # Split into segments without ads.
 mkdir -p $stream_directory/gapless
