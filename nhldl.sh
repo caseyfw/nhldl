@@ -65,14 +65,15 @@ concat_file=$stream_directory/stream_files.txt
 : > $concat_file
 
 counter=1
-num_of_segments=$(grep "^[^#]" $stream_m3u8_file | wc -l)
+num_of_segments=$(grep "^[0-9]" $stream_m3u8_file | wc -l)
 
 # For each line in stream m3u8 file.
 while read -r line; do
     # If line is a new key and IV
-    if echo $line | grep -q "^#EXT-X-KEY"; then
+    if echo $line | grep -q "^#EXT-X-KEY:METHOD=AES"; then
         # Extract key.
         key_url=$(echo "$line" | grep -o "https://mf[^\"]*")
+	echo ">>> Key URL: $key_url"
         key_file="$stream_directory/keys/$(basename $key_url)"
         key=$(xxd -p $key_file)
 
